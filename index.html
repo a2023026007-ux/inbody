@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>충북대학교 스포츠센터 인바디 예약</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/phosphor-icons"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        cbnu: {
+                            DEFAULT: '#8a1538', // 충북대 상징색 (버건디)
+                            light: '#a62b4e',
+                            dark: '#6b0f2a',
+                        },
+                        gold: '#cfb53b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 커스텀 스크롤바 가리기 (모바일 친화적) */
+        ::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 토스트 애니메이션 */
+        @keyframes slideInUp {
+            from { transform: translate(-50%, 100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .toast-enter {
+            animation: slideInUp 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased h-screen overflow-hidden flex justify-center">
+
+    <!-- 모바일 앱 컨테이너 -->
+    <div class="w-full max-w-md h-full bg-white relative shadow-2xl flex flex-col">
+        
+        <!-- Login Screen -->
+        <div id="login-screen" class="flex flex-col h-full w-full bg-white justify-center items-center p-6 absolute inset-0 z-50">
+            <div class="mb-10 text-center w-full">
+                <div class="w-20 h-20 bg-cbnu rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i class="ph-fill ph-barbell text-4xl text-gold"></i>
+                </div>
+                <h1 id="login-title-text" class="text-2xl font-bold text-gray-800">인바디 예약 시스템</h1>
+                <p class="text-sm text-gray-500 mt-1">충북대학교 스포츠센터</p>
+            </div>
+            
+            <!-- 일반 사용자 로그인 폼 -->
+            <form id="user-login-form" onsubmit="handleLogin(event)" class="w-full max-w-sm space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">이름</label>
+                    <input type="text" id="login-name" placeholder="이름을 입력하세요" required
+                           class="w-full px-4 py-3.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-cbnu focus:border-cbnu outline-none transition text-sm bg-gray-50">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">전화번호</label>
+                    <input type="tel" id="login-phone" placeholder="숫자만 입력하세요 (예: 01012345678)" required pattern="[0-9]+" oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                           class="w-full px-4 py-3.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-cbnu focus:border-cbnu outline-none transition text-sm bg-gray-50">
+                </div>
+                <button type="submit" class="w-full bg-cbnu text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-cbnu-light transition mt-4">
+                    로그인
+                </button>
+            </form>
+
+            <!-- 관리자 로그인 폼 -->
+            <form id="admin-login-form" onsubmit="handleAdminLogin(event)" class="w-full max-w-sm space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">사번</label>
+                    <input type="text" id="admin-id" placeholder="사번을 입력하세요" required
+                           class="w-full px-4 py-3.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-800 focus:border-gray-800 outline-none transition text-sm bg-gray-50">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">비밀번호</label>
+                    <input type="password" id="admin-pw" placeholder="비밀번호를 입력하세요" required
+                           class="w-full px-4 py-3.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-800 focus:border-gray-800 outline-none transition text-sm bg-gray-50">
+                </div>
+                <button type="submit" class="w-full bg-gray-800 text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-gray-700 transition mt-4">
+                    관리자 로그인
+                </button>
+            </form>
+            
+            <div class="mt-8 flex gap-4 text-sm text-gray-400 font-medium">
+                <button id="mode-toggle-btn" type="button" onclick="toggleLoginMode()" class="hover:text-cbnu transition underline underline-offset-2">관리자 권한으로 로그인</button>
+            </div>
+        </div>
+
+        <!-- App Screen -->
+        <div id="app-screen" class="hidden flex-col h-full w-full relative bg-gray-50">
+            <!-- Header -->
+            <header id="app-header" class="bg-cbnu text-white p-4 flex justify-between items-center shadow-md z-10 shrink-0 transition-colors">
+                <!-- Content injected via JS based on role -->
+            </header>
+
+            <!-- Main Content Area -->
+            <main id="main-content" class="flex-1 overflow-y-auto w-full relative pb-20">
+                <!-- Content injected here -->
+            </main>
+
+            <!-- User Bottom Navigation -->
+            <nav id="bottom-nav" class="bg-white border-t border-gray-200 flex justify-around p-2 pb-safe absolute bottom-0 w-full z-10 shrink-0">
+                <button onclick="switchTab('home')" data-tab="home" class="tab-btn flex flex-col items-center p-2 text-cbnu w-full">
+                    <i class="ph ph-house text-2xl mb-1"></i>
+                    <span class="text-[10px] font-medium">홈</span>
+                </button>
+                <button onclick="switchTab('reserve')" data-tab="reserve" class="tab-btn flex flex-col items-center p-2 text-gray-400 w-full">
+                    <i class="ph ph-calendar-plus text-2xl mb-1"></i>
+                    <span class="text-[10px] font-medium">예약하기</span>
+                </button>
+                <button onclick="switchTab('my')" data-tab="my" class="tab-btn flex flex-col items-center p-2 text-gray-400 w-full">
+                    <i class="ph ph-user text-2xl mb-1"></i>
+                    <span class="text-[10px] font-medium">내 정보</span>
+                </button>
+            </nav>
+
+            <!-- Admin Bottom Navigation -->
+            <nav id="admin-bottom-nav" class="bg-white border-t border-gray-200 hidden justify-around p-2 pb-safe absolute bottom-0 w-full z-10 shrink-0">
+                <button class="flex flex-col items-center p-2 text-cbnu w-full">
+                    <i class="ph ph-calendar-check text-2xl mb-1"></i>
+                    <span class="text-[10px] font-medium">예약 관리 현황</span>
+                </button>
+            </nav>
+        </div> <!-- End of App Screen -->
+
+        <!-- Toast Notification -->
+        <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg text-sm hidden z-50 flex items-center gap-2 max-w-[90%]">
+            <i class="ph-fill ph-bell-ringing text-gold text-lg"></i>
+            <span id="toast-message">알림 메시지</span>
+        </div>
+
+        <!-- Modal Overlay -->
+        <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40 items-center justify-center p-4">
+            <div id="modal-content" class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-transform duration-200">
+                <!-- Modal Body will be injected here -->
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- State Management ---
+        const AppState = {
+            isLoggedIn: false,
+            role: 'user', // 'user' or 'admin'
+            currentTab: 'home',
+            selectedDate: getTomorrowDate(),
+            hasNotification: false, // 알림 시뮬레이션용 플래그
+            notifications: [], // 알림 모음 데이터
+            remindersSent: [], // 신규: 1시간 전 알림 발송 기록 추적용
+            
+            // Mock User Info
+            currentUser: {
+                id: 'user123',
+                name: '김충북',
+                studentId: '2023000123',
+                phone: '01012345678'
+            },
+
+            // Mock History Info
+            history: [
+                { date: '2026-08-10', weight: 75.2, muscle: 33.1, fatPercent: 22.4, bmi: 24.5, score: 74, bmr: 1620 },
+                { date: '2026-09-12', weight: 74.5, muscle: 33.5, fatPercent: 21.0, bmi: 24.1, score: 76, bmr: 1650 },
+                { date: '2026-10-15', weight: 73.8, muscle: 34.2, fatPercent: 19.5, bmi: 23.8, score: 79, bmr: 1690 }
+            ],
+
+            // Mock Reservations DB { "YYYY-MM-DD": { "HH:MM": { status, userId, userName, waitlist: [] } } }
+            db: {},
+            
+            // Equipment Status ('available' or 'unavailable')
+            equipmentStatus: 'available'
+        };
+        
+        let fatChartInstance = null; // 차트 인스턴스 저장용
+
+        // --- Utility Functions ---
+        function getLocalYYYYMMDD(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function getTomorrowDate() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            // 주말 건너뛰기 로직 (토요일이면 월요일로, 일요일이면 월요일로 맞춤)
+            if(tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+            if(tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            return getLocalYYYYMMDD(tomorrow);
+        }
+
+        function getDayName(dateStr) {
+            const date = new Date(dateStr);
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            return days[date.getDay()];
+        }
+
+        function generateTimeSlots() {
+            const slots = [];
+            for (let h = 6; h <= 20; h++) {
+                const hour = h.toString().padStart(2, '0');
+                slots.push(`${hour}:00`);
+                if (h !== 20) slots.push(`${hour}:30`);
+            }
+            return slots;
+        }
+
+        const timeSlots = generateTimeSlots();
+
+        // 날짜에 따른 가짜(Mock) 예약 데이터 가져오기/생성하기
+        function getOrCreateDayData(dateStr) {
+            if (!AppState.db[dateStr]) {
+                // 데이터가 없는 날짜라면 테스트를 위해 몇 개의 예약을 무작위로 꽉 채워둠
+                AppState.db[dateStr] = {};
+                
+                // 9시와 18시는 항상 꽉 차있도록 설정
+                AppState.db[dateStr]["09:00"] = { status: 'booked', userId: 'dummy1', userName: '김테스트', waitlist: [] };
+                AppState.db[dateStr]["18:00"] = { status: 'booked', userId: 'dummy2', userName: '박테스트', waitlist: [] };
+            }
+            return AppState.db[dateStr];
+        }
+
+        // Initialize Mock DB
+        function initMockDB() {
+            const date = AppState.selectedDate;
+            AppState.db[date] = {
+                "09:00": { status: 'booked', userId: 'otherUser1', userName: '이학생', waitlist: [] },
+                "09:30": { status: 'booked', userId: 'otherUser2', userName: '박체육', waitlist: [{userId: 'dummy', userName: '임시대기자'}] }, // 대기자가 있는 슬롯
+                "11:30": { status: 'booked', userId: 'otherUser4', userName: '김테스트', waitlist: [] }, 
+                "18:00": { status: 'booked', userId: 'otherUser3', userName: '최운동', waitlist: [] },
+            };
+        }
+
+        // --- Authentication ---
+        let currentLoginMode = 'user';
+
+        function toggleLoginMode() {
+            const userForm = document.getElementById('user-login-form');
+            const adminForm = document.getElementById('admin-login-form');
+            const toggleBtn = document.getElementById('mode-toggle-btn');
+            const titleText = document.getElementById('login-title-text');
+
+            if (currentLoginMode === 'user') {
+                currentLoginMode = 'admin';
+                userForm.classList.add('hidden');
+                adminForm.classList.remove('hidden');
+                toggleBtn.innerText = '일반 사용자로 로그인';
+                titleText.innerText = '관리자 시스템';
+            } else {
+                currentLoginMode = 'user';
+                adminForm.classList.add('hidden');
+                userForm.classList.remove('hidden');
+                toggleBtn.innerText = '관리자 권한으로 로그인';
+                titleText.innerText = '인바디 예약 시스템';
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const name = document.getElementById('login-name').value;
+            const phone = document.getElementById('login-phone').value;
+            
+            // 입력한 이름과 전화번호를 임시 유저 정보로 사용 (테스트용)
+            AppState.currentUser.name = name;
+            AppState.currentUser.phone = phone;
+            AppState.currentUser.id = `user_${phone.replace(/[^0-9]/g, '')}`; 
+            
+            AppState.role = 'user';
+            completeLogin();
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            const adminId = document.getElementById('admin-id').value;
+            const adminPw = document.getElementById('admin-pw').value;
+            
+            // Mock authentication (사번/비밀번호가 입력되면 무조건 통과하도록 구현)
+            if (adminId && adminPw) {
+                AppState.role = 'admin';
+                completeLogin();
+            }
+        }
+
+        function completeLogin() {
+            AppState.isLoggedIn = true;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            document.getElementById('app-screen').classList.add('flex');
+            
+            if(AppState.notifications.length === 0 && AppState.role === 'user') {
+                 addNotification("충북대학교 인바디 예약 앱에 오신 것을 환영합니다.");
+            }
+            
+            const header = document.getElementById('app-header');
+            
+            // 로그인 역할에 따라 화면 구성 분기
+            if (AppState.role === 'admin') {
+                header.className = 'bg-[#1a1f2b] text-white p-4 flex justify-between items-center shadow-md z-10 shrink-0';
+                header.innerHTML = `
+                    <div>
+                        <h1 class="font-bold text-lg tracking-tight">운영자 통합 대시보드</h1>
+                        <p class="text-[10px] text-gray-400 mt-0.5">충북대 체육진흥원 행정실 / 지도자</p>
+                    </div>
+                    <button onclick="promptLogout()" class="bg-white/10 border border-white/20 text-gray-200 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition">
+                        로그아웃
+                    </button>
+                `;
+                document.getElementById('bottom-nav').style.display = 'none';
+                document.getElementById('admin-bottom-nav').style.display = 'flex';
+                renderAdminDashboard();
+            } else {
+                header.className = 'bg-cbnu text-white p-4 flex justify-between items-center shadow-md z-10 shrink-0';
+                header.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <i id="role-icon" class="ph ph-house text-2xl"></i>
+                        <h1 class="font-bold text-lg">스포츠센터 인바디</h1>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="openNotificationCenter()" class="relative" title="알림">
+                            <i class="ph ph-bell text-2xl hover:text-gray-200 transition"></i>
+                            <span id="notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full hidden shadow-sm border border-cbnu">0</span>
+                        </button>
+                        <button onclick="promptLogout()" class="bg-white/10 border border-white/20 text-white hover:bg-white/20 px-3 py-1.5 rounded-lg text-xs font-medium transition" title="로그아웃">
+                            로그아웃
+                        </button>
+                    </div>
+                `;
+                updateNotificationBadge();
+                document.getElementById('bottom-nav').style.display = 'flex';
+                document.getElementById('admin-bottom-nav').style.display = 'none';
+                switchTab('home');
+            }
+        }
+
+        function promptLogout() {
+            const modalHtml = `
+                <div class="p-6 text-center">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
+                        <i class="ph-duotone ph-sign-out text-3xl"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-gray-800 mb-2">로그아웃 하시겠습니까?</h2>
+                    <p class="text-sm text-gray-500 mb-6">로그아웃 시 로그인 화면으로 이동합니다.</p>
+                    <div class="flex gap-2">
+                        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300 transition">취소</button>
+                        <button onclick="confirmLogout()" class="flex-1 bg-cbnu text-white py-3 rounded-lg font-bold hover:bg-cbnu-light shadow-md transition">로그아웃</button>
+                    </div>
+                </div>
+            `;
+            openModal(modalHtml);
+        }
+
+        function confirmLogout() {
+            closeModal();
+            AppState.isLoggedIn = false;
+            
+            // 로그인 화면 폼 초기화
+            document.getElementById('login-name').value = '';
+            document.getElementById('login-phone').value = '';
+            document.getElementById('admin-id').value = '';
+            document.getElementById('admin-pw').value = '';
+            
+            document.getElementById('app-screen').classList.remove('flex');
+            document.getElementById('app-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            
+            // 관리자 폼 상태였다면 다시 일반 사용자 폼으로 초기화
+            if(currentLoginMode === 'admin') {
+                toggleLoginMode();
+            }
+            
+            showToast("로그아웃 되었습니다.");
+        }
+
+        // --- Core Functions ---
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = message;
+            toast.classList.remove('hidden');
+            toast.classList.add('toast-enter');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('toast-enter');
+            }, 3000);
+        }
+
+        function openModal(htmlContent) {
+            const overlay = document.getElementById('modal-overlay');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = htmlContent;
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            setTimeout(() => content.classList.replace('scale-95', 'scale-100'), 10);
+        }
+
+        function closeModal() {
+            const overlay = document.getElementById('modal-overlay');
+            const content = document.getElementById('modal-content');
+            content.classList.replace('scale-100', 'scale-95');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+            }, 200);
+        }
+
+        // --- Notifications ---
+        function addNotification(message) {
+            const notifId = Date.now();
+            AppState.notifications.unshift({
+                id: notifId,
+                message: message,
+                time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                read: false
+            });
+            updateNotificationBadge();
+            return notifId; // 생성된 알림 ID 반환 (읽음 여부 추적용)
+        }
+
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notif-badge');
+            if(!badge) return;
+            const unreadCount = AppState.notifications.filter(n => !n.read).length;
+            if(unreadCount > 0) {
+                badge.innerText = unreadCount > 9 ? '9+' : unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function openNotificationCenter() {
+            let listHtml = AppState.notifications.map(n => `
+                <div class="p-4 border-b border-gray-100 last:border-0 ${n.read ? 'bg-white' : 'bg-red-50'}">
+                    <p class="text-sm text-gray-800 font-medium leading-snug">${n.message}</p>
+                    <p class="text-[10px] text-gray-400 mt-2">${n.time}</p>
+                </div>
+            `).join('');
+
+            if(AppState.notifications.length === 0) {
+                listHtml = `<div class="p-10 flex flex-col items-center justify-center text-gray-400">
+                                <i class="ph-duotone ph-bell-slash text-4xl mb-2"></i>
+                                <span class="text-sm">새로운 알림이 없습니다.</span>
+                            </div>`;
+            }
+
+            const modalHtml = `
+                <div class="flex flex-col max-h-[70vh]">
+                    <div class="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0 rounded-t-xl">
+                        <h2 class="font-bold text-lg text-gray-800 flex items-center gap-2">
+                            <i class="ph-fill ph-bell-ringing text-cbnu"></i> 알림 모음
+                        </h2>
+                        <button onclick="closeModal()" class="text-gray-500 hover:text-gray-800 bg-gray-200 w-8 h-8 rounded-full flex items-center justify-center transition">
+                            <i class="ph ph-x text-lg"></i>
+                        </button>
+                    </div>
+                    <div class="overflow-y-auto flex-1 bg-white rounded-b-xl">
+                        ${listHtml}
+                    </div>
+                </div>
+            `;
+            openModal(modalHtml);
+            
+            // 모든 알림 읽음 처리
+            AppState.notifications.forEach(n => n.read = true);
+            updateNotificationBadge();
+        }
+
+        function handleDateChange(e) {
+            // UTC 시간차 오류를 막기 위해 문자열을 쪼개어 로컬 날짜로 생성
+            const [y, m, d] = e.target.value.split('-');
+            const selected = new Date(y, m - 1, d);
+            const day = selected.getDay();
+            
+            // 주말 선택 방지
+            if(day === 0 || day === 6) {
+                showToast("주말(토, 일)은 예약이 불가합니다.");
+                e.target.value = AppState.selectedDate; // 원래 선택했던 날짜로 되돌림
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            if(selected <= today) {
+                showToast("당일 및 과거 예약은 불가합니다.");
+                e.target.value = AppState.selectedDate;
+                return;
+            }
+
+            AppState.selectedDate = e.target.value;
+            
+            // 선택한 날짜의 데이터를 초기화 또는 생성
+            getOrCreateDayData(AppState.selectedDate);
+
+            if(AppState.role === 'user') renderUserReserveTab();
+            else renderAdminDashboard();
+        }
+
+
+        // --- User Actions ---
+        function promptReservation(time) {
+            const dateStr = `${AppState.selectedDate} (${getDayName(AppState.selectedDate)})`;
+            const modalHtml = `
+                <div class="p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">인바디 측정 예약</h2>
+                    <div class="bg-gray-100 p-4 rounded-lg mb-4 text-sm">
+                        <p class="mb-1"><span class="text-gray-500 w-16 inline-block">예약일시</span> <span class="font-bold text-cbnu">${dateStr} ${time}</span></p>
+                        <p class="mb-1"><span class="text-gray-500 w-16 inline-block">이름</span> <span>${AppState.currentUser.name}</span></p>
+                        <p><span class="text-gray-500 w-16 inline-block">전화번호</span> <span>${AppState.currentUser.phone}</span></p>
+                    </div>
+                    <ul class="text-xs text-gray-500 mb-6 space-y-1 list-disc pl-4">
+                        <li>예약 시간 10분 이상 지각 시 <strong class="text-red-500">자동 취소</strong>됩니다.</li>
+                        <li>당일 취소는 불가하며, 노쇼 시 페널티가 있습니다.</li>
+                    </ul>
+                    <div class="flex gap-2">
+                        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-300">취소</button>
+                        <button onclick="confirmReservation('${time}')" class="flex-1 bg-cbnu text-white py-3 rounded-lg font-medium hover:bg-cbnu-light">예약 확정</button>
+                    </div>
+                </div>
+            `;
+            openModal(modalHtml);
+        }
+
+        function confirmReservation(time) {
+            const date = AppState.selectedDate;
+            if(!AppState.db[date]) AppState.db[date] = {};
+            
+            AppState.db[date][time] = {
+                status: 'booked',
+                userId: AppState.currentUser.id,
+                userName: AppState.currentUser.name,
+                waitlist: []
+            };
+            
+            closeModal();
+            showToast("예약이 완료되었습니다.");
+            addNotification(`[${date} ${time}] 인바디 측정이 예약되었습니다.`);
+            
+            // 예약 후 예약 현황을 바로 볼 수 있도록 '내 정보' 탭으로 전환
+            switchTab('my');
+        }
+
+        function promptWaitlist(time) {
+            const dateStr = `${AppState.selectedDate} (${getDayName(AppState.selectedDate)})`;
+            const modalHtml = `
+                <div class="p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">예약 대기 신청</h2>
+                    <p class="text-sm text-gray-600 mb-4">해당 시간은 현재 예약이 마감되었습니다. 빈 자리가 생기면 알림을 받으시겠습니까?</p>
+                    <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-6 text-sm text-yellow-800">
+                        <span class="font-bold">${dateStr} ${time}</span> 대기 명단에 등록합니다.
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-300">취소</button>
+                        <button onclick="confirmWaitlist('${time}')" class="flex-1 bg-gold text-white py-3 rounded-lg font-medium hover:bg-yellow-600 shadow-md">대기 신청</button>
+                    </div>
+                </div>
+            `;
+            openModal(modalHtml);
+        }
+
+        function confirmWaitlist(time) {
+            const date = AppState.selectedDate;
+            if(!AppState.db[date][time].waitlist) {
+                AppState.db[date][time].waitlist = [];
+            }
+            AppState.db[date][time].waitlist.push({
+                userId: AppState.currentUser.id,
+                userName: AppState.currentUser.name
+            });
+            
+            closeModal();
+            showToast("대기 신청이 완료되었습니다.");
+            addNotification(`[${date} ${time}] 대기 신청이 접수되었습니다. 빈 자리가 생기면 알려드릴게요!`);
+            
+            // 대기 신청 후 예약 현황을 바로 볼 수 있도록 '내 정보' 탭으로 전환
+            switchTab('my');
+        }
+
+        function promptCancelReservation(date, time) {
+            const modalHtml = `
+                <div class="p-6 text-center">
+                    <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+                        <i class="ph-fill ph-warning-circle text-3xl"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-gray-800 mb-2">예약을 취소하시겠습니까?</h2>
+                    <p class="text-sm text-gray-500 mb-6">[${date} ${time}] 예약이 삭제되며,<br>해당 시간은 빈 자리로 전환됩니다.</p>
+                    <div class="flex gap-2">
+                        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300 transition">닫기</button>
+                        <button onclick="confirmCancelReservation('${date}', '${time}')" class="flex-1 bg-red-500 text-white py-3 rounded-lg font-bold hover:bg-red-600 shadow-md transition">취소하기</button>
+                    </div>
+                </div>
+            `;
+            openModal(modalHtml);
+        }
+
+        function confirmCancelReservation(date, time) {
+            handleAutoPromotion(date, time); // 대기자 자동 승급 로직 적용
+            closeModal();
+            renderUserMyTab();
+            showToast("예약이 정상적으로 취소되었습니다.");
+            addNotification(`[${date} ${time}] 예약이 취소되었습니다.`);
+        }
+        
+        function promptCancelWaitlist(date, time) {
+             const modalHtml = `
+                <div class="p-6 text-center">
+                    <div class="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-500">
+                        <i class="ph-fill ph-warning-circle text-3xl"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-gray-800 mb-2">대기를 취소하시겠습니까?</h2>
+                    <p class="text-sm text-gray-500 mb-6">[${date} ${time}] 대기 명단에서 제외됩니다.</p>
+                    <div class="flex gap-2">
+                        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300 transition">닫기</button>
+                        <button onclick="confirmCancelWaitlist('${date}', '${time}')" class="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-bold hover:bg-yellow-600 shadow-md transition">대기 취소</button>
+                    </div>
+                </div>
+            `;
+            openModal(modalHtml);
+        }
+
+        function confirmCancelWaitlist(date, time) {
+            const waitlist = AppState.db[date][time].waitlist;
+            AppState.db[date][time].waitlist = waitlist.filter(w => w.userId !== AppState.currentUser.id);
+            closeModal();
+            renderUserMyTab();
+            showToast("대기 신청이 취소되었습니다.");
+            addNotification(`[${date} ${time}] 대기 신청이 취소되었습니다.`);
+        }
+
+
+        // --- Admin Actions ---
+        function adminCancelSlot(time) {
+            const date = AppState.selectedDate;
+            const slotData = AppState.db[date][time];
+            
+            const modalHtml = `
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-500 shrink-0">
+                            <i class="ph-fill ph-warning text-xl"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-gray-800">예약 취소 확인</h2>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">
+                        <strong class="text-gray-800">[${time}] ${slotData.userName}</strong> 회원의 예약을 관리자 권한으로 취소하시겠습니까?
+                    </p>
+                    <div class="bg-gray-50 border border-gray-100 p-3 rounded-lg mb-6 text-xs text-gray-500 leading-relaxed">
+                        * 취소 시 해당 시간은 즉시 공석으로 전환됩니다.<br>
+                        * 대기자가 있는 경우 1순위 대기자에게 확정 알림이 발송되며 자동으로 재배정됩니다.
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300 transition">닫기</button>
+                        <button onclick="confirmAdminCancelSlot('${time}')" class="flex-1 bg-red-500 text-white py-3 rounded-lg font-bold hover:bg-red-600 shadow-md transition">예약 취소</button>
+                    </div>
+                </div>
+            `;
+            openModal(modalHtml);
+        }
+
+        function confirmAdminCancelSlot(time) {
+            const date = AppState.selectedDate;
+            handleAutoPromotion(date, time); // 대기자 자동 승급 로직 적용
+            closeModal();
+            renderAdminDashboard();
+            showToast("예약이 취소되고 대기열이 자동 처리되었습니다.");
+        }
+
+        // --- 신규: 대기자 자동 승급 및 미확인 재알림 로직 ---
+        function handleAutoPromotion(date, time) {
+            const slot = AppState.db[date][time];
+            if (slot && slot.waitlist && slot.waitlist.length > 0) {
+                const nextUser = slot.waitlist.shift(); // 대기 1순위 추출
+                
+                // 예약자 승격
+                slot.status = 'booked';
+                slot.userId = nextUser.userId;
+                slot.userName = nextUser.userName;
+                
+                if (nextUser.userId === AppState.currentUser.id) {
+                    const notifId = addNotification(`🎉 대기 중이던 [${date} ${time}] 예약이 자동 확정되었습니다!`);
+                    
+                    // 1시간 뒤 확인 로직 (시뮬레이션: 60 * 60 * 1000 ms)
+                    // 실제 앱 미접속 판별을 '알림을 읽지 않음' 상태로 갈음합니다.
+                    setTimeout(() => {
+                        const targetNotif = AppState.notifications.find(n => n.id === notifId);
+                        if (targetNotif && !targetNotif.read) {
+                            addNotification(`❗ [일정 재확인 요망] 빈 자리가 생겨 ${date} ${time} 예약이 확정되었습니다. 앱에 접속하여 일정을 꼭 확인해주세요.`);
+                            if (AppState.isLoggedIn) showToast("새로 확정된 예약 일정을 확인해주세요!");
+                        }
+                    }, 60 * 60 * 1000); // 1시간
+                } else {
+                    // 실제 환경에서는 백엔드를 통해 대상 유저 기기로 푸시 알림을 전송합니다.
+                    console.log(`[시스템 자동화] 푸시 알림 전송: ${nextUser.userName}님 예약 확정`);
+                }
+            } else {
+                // 대기자가 없으면 해당 슬롯 완전 비우기
+                delete AppState.db[date][time];
+            }
+        }
+
+        // --- Rendering Logic ---
+
+        function switchTab(tabId) {
+            AppState.currentTab = tabId;
+            
+            // Update Nav UI
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if(btn.dataset.tab === tabId) {
+                    btn.classList.remove('text-gray-400');
+                    btn.classList.add('text-cbnu');
+                } else {
+                    btn.classList.add('text-gray-400');
+                    btn.classList.remove('text-cbnu');
+                }
+            });
+            
+            // 헤더 아이콘 업데이트
+            const icon = document.getElementById('role-icon');
+            if (icon) {
+                if (tabId === 'home') icon.className = 'ph ph-house text-2xl';
+                else if (tabId === 'reserve') icon.className = 'ph ph-calendar-plus text-2xl';
+                else if (tabId === 'my') icon.className = 'ph ph-user text-2xl';
+            }
+
+            // Render Content
+            if(tabId === 'home') renderUserHomeTab();
+            else if(tabId === 'reserve') renderUserReserveTab();
+            else if(tabId === 'my') renderUserMyTab();
+        }
+
+        function renderUserReserveTab() {
+            const main = document.getElementById('main-content');
+            
+            let html = `
+                <div class="p-4 bg-white shadow-sm mb-2 sticky top-0 z-10">
+                    <label class="block text-xs text-gray-500 mb-1 font-medium">측정 희망일 선택</label>
+                    <input type="date" value="${AppState.selectedDate}" min="${getTomorrowDate()}" onchange="handleDateChange(event)" 
+                           class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg p-2.5 focus:ring-cbnu focus:border-cbnu font-medium">
+                    <p class="text-[10px] text-gray-400 mt-1">* 당일 및 주말, 공휴일은 예약 불가</p>
+                </div>
+                <div class="p-4 relative">
+            `;
+
+            // 장비 상태가 이용 불가(unavailable)인 경우 예약 막기
+            if(AppState.equipmentStatus === 'unavailable') {
+                html += `
+                    <div class="absolute inset-0 bg-white/70 z-10 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3 shadow-inner">
+                            <i class="ph-duotone ph-wrench text-3xl text-gray-500"></i>
+                        </div>
+                        <h3 class="font-bold text-lg text-gray-800 mb-1">인바디 장비 점검 중</h3>
+                        <p class="text-sm text-gray-600">현재 장비 점검으로 인해 예약을 진행할 수 없습니다. 이용에 불편을 드려 죄송합니다.</p>
+                    </div>
+                `;
+            }
+
+            html += `
+                    <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">
+                        <i class="ph ph-clock text-cbnu text-lg"></i> 시간 선택
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2">
+            `;
+
+            // getOrCreateDayData를 통해 데이터를 가져옴
+            const todayData = getOrCreateDayData(AppState.selectedDate);
+
+            timeSlots.forEach(time => {
+                const slot = todayData[time];
+                let btnClass = "bg-white border border-gray-200 text-gray-700 hover:border-cbnu hover:text-cbnu";
+                let text = time;
+                let subText = "예약가능";
+                let onclick = `promptReservation('${time}')`;
+                let isMyBooking = false;
+                let isMyWaitlist = false;
+
+                if (slot && slot.status === 'booked') {
+                    if (slot.userId === AppState.currentUser.id) {
+                        btnClass = "bg-cbnu border-cbnu text-white shadow-md";
+                        subText = "내 예약";
+                        onclick = ``; // 본인 예약은 이 탭에서 수정 불가 (내 정보 탭에서)
+                        isMyBooking = true;
+                    } else {
+                        // 남의 예약
+                        isMyWaitlist = slot.waitlist && slot.waitlist.some(w => w.userId === AppState.currentUser.id);
+                        if(isMyWaitlist) {
+                            btnClass = "bg-yellow-100 border-yellow-300 text-yellow-800";
+                            subText = "대기중";
+                            onclick = ``;
+                        } else {
+                            btnClass = "bg-gray-100 border-gray-200 text-gray-500 opacity-90";
+                            subText = "예약마감";
+                            onclick = `promptWaitlist('${time}')`;
+                        }
+                    }
+                }
+
+                html += `
+                    <button onclick="${onclick}" class="${btnClass} p-3 rounded-lg flex flex-col items-center justify-center transition-all min-h-[75px] relative">
+                        <span class="font-bold ${isMyBooking ? 'text-lg' : 'text-base'}">${text}</span>
+                        <span class="text-[10px] mt-1 ${isMyBooking ? 'text-cbnu-light bg-white px-2 py-0.5 rounded-full' : ''}">${subText}</span>
+                        ${(!isMyBooking && !isMyWaitlist && slot && slot.status === 'booked') ? '<span class="absolute top-1 right-1 flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-gold"></span></span>' : ''}
+                    </button>
+                `;
+            });
+
+            html += `</div></div>`;
+            main.innerHTML = html;
+        }
+
+        function renderUserMyTab() {
+            const main = document.getElementById('main-content');
+            
+            // Find my bookings and waitlists
+            let myItems = [];
+            for (const [date, slots] of Object.entries(AppState.db)) {
+                for (const [time, data] of Object.entries(slots)) {
+                    if (data.userId === AppState.currentUser.id) {
+                        myItems.push({ type: 'booked', date, time });
+                    }
+                    if (data.waitlist) {
+                        const wIndex = data.waitlist.findIndex(w => w.userId === AppState.currentUser.id);
+                        if (wIndex !== -1) {
+                            // 대기 순서(1번부터 시작하므로 인덱스 + 1)
+                            myItems.push({ type: 'waitlist', date, time, waitOrder: wIndex + 1 });
+                        }
+                    }
+                }
+            }
+            
+            // Sort
+            myItems.sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+
+            let html = `
+                <div class="p-6 bg-cbnu text-white">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="ph ph-user text-3xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold">${AppState.currentUser.name} 님</h2>
+                            <p class="text-sm opacity-80">${AppState.currentUser.phone} | 회원</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4">
+                    <h3 class="font-bold text-gray-800 mb-3 border-b pb-2">나의 예약 현황</h3>
+            `;
+
+            if(myItems.length === 0) {
+                html += `<div class="text-center text-gray-400 py-6 bg-white rounded-lg shadow-sm border border-gray-100">
+                            <i class="ph ph-calendar-blank text-3xl mb-2"></i><br><span class="text-sm">예약 내역이 없습니다.</span>
+                         </div>`;
+            } else {
+                html += `<div class="space-y-3">`;
+                myItems.forEach(item => {
+                    const isBooked = item.type === 'booked';
+                    const badgeClass = isBooked ? 'bg-cbnu text-white' : 'bg-gold text-white';
+                    const badgeText = isBooked ? '예약확정' : `대기 ${item.waitOrder}순위`;
+                    const cancelFunc = isBooked ? `promptCancelReservation('${item.date}', '${item.time}')` : `promptCancelWaitlist('${item.date}', '${item.time}')`;
+
+                    html += `
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                            <div>
+                                <span class="text-[10px] font-bold px-2 py-1 rounded-md ${badgeClass} inline-block mb-1">${badgeText}</span>
+                                <p class="font-bold text-gray-800 text-sm mt-1">${item.date} (${getDayName(item.date)})</p>
+                                <p class="text-lg text-cbnu font-bold">${item.time}</p>
+                            </div>
+                            <button onclick="${cancelFunc}" class="text-xs text-gray-500 hover:text-red-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                                취소
+                            </button>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            // 체지방률 그래프 및 과거 기록 영역 추가
+            html += `
+                <h3 class="font-bold text-gray-800 mt-6 mb-3 border-b pb-2">나의 체지방률 변화</h3>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 h-48">
+                    <canvas id="fatChart"></canvas>
+                </div>
+
+                <h3 class="font-bold text-gray-800 mb-3 border-b pb-2">과거 측정 기록</h3>
+                <div class="space-y-2 mb-6">
+            `;
+            
+            // 과거 기록 리스트 렌더링
+            const reversedHistory = AppState.history.slice().reverse();
+            reversedHistory.forEach((record, index) => {
+                const originalIndex = AppState.history.length - 1 - index; // 원본 배열에서의 인덱스
+                html += `
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex justify-between items-center">
+                        <div class="flex-1">
+                            <p class="font-bold text-sm text-gray-800 mb-1">${record.date}</p>
+                            <div class="flex text-xs text-gray-500 gap-3">
+                                <span>체중: <strong class="text-gray-700">${record.weight}kg</strong></span>
+                                <span>골격근: <strong class="text-gray-700">${record.muscle}kg</strong></span>
+                            </div>
+                        </div>
+                        <div class="text-right flex flex-col items-end pl-2 border-l border-gray-100">
+                            <p class="text-[10px] text-gray-400">체지방률</p>
+                            <p class="font-black text-cbnu text-lg">${record.fatPercent}%</p>
+                            <button onclick="showRecordDetail(${originalIndex})" class="mt-1 text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded hover:bg-gray-200 font-medium">자세히 보기</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 사진 촬영으로 기록 추가 버튼 (Input file 래핑)
+            html += `
+                <label class="mt-4 flex items-center justify-center gap-2 w-full bg-cbnu/10 text-cbnu font-bold py-3.5 rounded-xl border border-cbnu/20 hover:bg-cbnu/20 transition cursor-pointer">
+                    <i class="ph ph-camera text-xl"></i>
+                    <span>결과지 촬영하여 기록 추가</span>
+                    <input type="file" accept="image/*" capture="environment" class="hidden" onchange="processInbodyScan(this)">
+                </label>
+            `;
+
+            html += `</div></div>`;
+            main.innerHTML = html;
+
+            // DOM 업데이트 후 차트 그리기
+            drawFatChart();
+        }
+
+        function showRecordDetail(index) {
+            const record = AppState.history[index];
+            const modalHtml = `
+                <div class="p-6">
+                    <div class="flex justify-between items-center border-b pb-3 mb-4">
+                        <h2 class="text-lg font-bold text-gray-800">인바디 측정 상세</h2>
+                        <span class="text-sm font-bold text-cbnu">${record.date}</span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                            <span class="text-sm text-gray-500 font-medium">인바디 점수</span>
+                            <span class="text-xl font-black text-gold">${record.score} <span class="text-sm font-normal text-gray-500">점</span></span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div class="border border-gray-100 p-3 rounded-lg">
+                                <p class="text-gray-400 text-[10px] mb-1">체중 (Weight)</p>
+                                <p class="font-bold text-gray-800">${record.weight} <span class="text-xs font-normal">kg</span></p>
+                            </div>
+                            <div class="border border-gray-100 p-3 rounded-lg">
+                                <p class="text-gray-400 text-[10px] mb-1">골격근량 (SMM)</p>
+                                <p class="font-bold text-gray-800">${record.muscle} <span class="text-xs font-normal">kg</span></p>
+                            </div>
+                            <div class="border border-gray-100 p-3 rounded-lg">
+                                <p class="text-gray-400 text-[10px] mb-1">체지방률 (PBF)</p>
+                                <p class="font-bold text-cbnu">${record.fatPercent} <span class="text-xs font-normal">%</span></p>
+                            </div>
+                            <div class="border border-gray-100 p-3 rounded-lg">
+                                <p class="text-gray-400 text-[10px] mb-1">BMI</p>
+                                <p class="font-bold text-gray-800">${record.bmi}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-gray-100 p-3 rounded-lg flex justify-between items-center">
+                            <p class="text-gray-500 text-xs font-medium">기초대사량 (BMR)</p>
+                            <p class="font-bold text-gray-800 text-sm">${record.bmr} <span class="text-xs font-normal">kcal</span></p>
+                        </div>
+                    </div>
+
+                    <button onclick="closeModal()" class="w-full bg-gray-800 text-white py-3 rounded-lg font-bold hover:bg-gray-700 transition mt-6">닫기</button>
+                </div>
+            `;
+            openModal(modalHtml);
+        }
+
+        function processInbodyScan(input) {
+            if (input.files && input.files[0]) {
+                // 로딩 모달 띄우기
+                openModal(`
+                    <div class="p-8 flex flex-col items-center justify-center text-center">
+                        <i class="ph-duotone ph-spinner-gap animate-spin text-4xl text-cbnu mb-4"></i>
+                        <h2 class="text-lg font-bold text-gray-800 mb-1">인바디 결과지 분석 중...</h2>
+                        <p class="text-sm text-gray-500">사진의 텍스트를 추출하고 있습니다.</p>
+                    </div>
+                `);
+
+                // OCR 처리 시뮬레이션 (1.5초 후 가짜 데이터 생성)
+                setTimeout(() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    const newRecord = {
+                        date: today,
+                        weight: 72.5,
+                        muscle: 35.1,
+                        fatPercent: 18.2,
+                        bmi: 23.1,
+                        score: 82,
+                        bmr: 1720
+                    };
+                    
+                    AppState.history.push(newRecord);
+                    closeModal();
+                    
+                    // UI 갱신을 위해 탭 다시 그리기
+                    setTimeout(() => {
+                        renderUserMyTab();
+                        showToast("🎉 새로운 측정 기록이 성공적으로 추가되었습니다!");
+                    }, 250);
+                    
+                }, 1500);
+            }
+        }
+
+        function drawFatChart() {
+            // ChartDataLabels 플러그인 등록
+            Chart.register(ChartDataLabels);
+
+            const ctx = document.getElementById('fatChart').getContext('2d');
+            if (fatChartInstance) {
+                fatChartInstance.destroy();
+            }
+            
+            // 데이터 기반으로 y축 여유 공간 확보 (라벨 겹침 방지)
+            const fatData = AppState.history.map(h => h.fatPercent);
+            const maxFat = Math.max(...fatData);
+            const minFat = Math.min(...fatData);
+
+            fatChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: AppState.history.map(h => h.date.substring(5)), // 월-일만 표시
+                    datasets: [{
+                        label: '체지방률 (%)',
+                        data: AppState.history.map(h => h.fatPercent),
+                        borderColor: '#8a1538',
+                        backgroundColor: 'rgba(138, 21, 56, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#cfb53b',
+                        pointBorderColor: '#fff',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 20 } // 라벨이 잘리지 않도록 상단 여백 추가
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: {
+                            align: 'top',
+                            anchor: 'end',
+                            offset: 2,
+                            color: '#8a1538',
+                            font: {
+                                weight: 'bold',
+                                size: 11
+                            },
+                            formatter: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            suggestedMin: Math.floor(minFat - 3),
+                            suggestedMax: Math.ceil(maxFat + 5) // 위쪽 여백을 넉넉히 주어 겹침 방지
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderUserHomeTab() {
+            const main = document.getElementById('main-content');
+            
+            // 가장 빠른 예약 내역 찾기
+            let nextReservation = null;
+            let isWaitlist = false;
+            
+            const sortedDates = Object.keys(AppState.db).sort();
+            for (let date of sortedDates) {
+                const slots = AppState.db[date];
+                const sortedTimes = Object.keys(slots).sort();
+                for (let time of sortedTimes) {
+                    const data = slots[time];
+                    if (data.userId === AppState.currentUser.id) {
+                        nextReservation = { date, time };
+                        isWaitlist = false;
+                        break;
+                    } else if (data.waitlist) {
+                        const wIndex = data.waitlist.findIndex(w => w.userId === AppState.currentUser.id);
+                        if (wIndex !== -1 && !nextReservation) {
+                            nextReservation = { date, time, waitOrder: wIndex + 1 };
+                            isWaitlist = true;
+                        }
+                    }
+                }
+                if (nextReservation && !isWaitlist) break;
+            }
+
+            let statusHtml = '';
+            if (nextReservation) {
+                const badgeClass = isWaitlist ? 'bg-gold text-white' : 'bg-cbnu text-white';
+                const badgeText = isWaitlist ? `대기 ${nextReservation.waitOrder}순위` : '예약확정';
+                statusHtml = `
+                    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-5 mb-6 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full ${isWaitlist ? 'bg-gold' : 'bg-cbnu'}"></div>
+                        <p class="text-xs text-gray-500 mb-1">나의 다음 일정</p>
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <p class="font-bold text-gray-800 text-lg">${nextReservation.date} (${getDayName(nextReservation.date)})</p>
+                                <p class="text-2xl text-cbnu font-black mt-1">${nextReservation.time}</p>
+                            </div>
+                            <span class="text-xs font-bold px-2.5 py-1.5 rounded-lg ${badgeClass}">${badgeText}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                 statusHtml = `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6 text-center">
+                        <p class="text-gray-500 text-sm mb-3">예정된 인바디 측정 일정이 없습니다.</p>
+                        <button onclick="switchTab('reserve')" class="bg-cbnu text-white text-sm font-bold py-2 px-4 rounded-lg shadow hover:bg-cbnu-light transition">
+                            예약하러 가기
+                        </button>
+                    </div>
+                `;
+            }
+
+            main.innerHTML = `
+                <div class="p-4 bg-gray-50 min-h-full">
+                    
+                    <div class="mb-2">
+                        <h2 class="text-xl font-bold text-gray-800">안녕하세요, ${AppState.currentUser.name} 님!</h2>
+                        <p class="text-sm text-gray-500 mt-1">오늘도 건강한 하루 보내세요.</p>
+                    </div>
+
+                    ${statusHtml}
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-4">
+                        <div class="bg-cbnu text-white p-3 font-bold text-sm flex items-center gap-2">
+                            <i class="ph ph-warning-circle text-lg"></i> 예약 및 취소 규정
+                        </div>
+                        <div class="p-4 text-sm text-gray-700 leading-relaxed space-y-2">
+                            <p class="flex items-start gap-2"><i class="ph-fill ph-check-circle text-cbnu mt-0.5 shrink-0"></i> <span><strong>공휴일, 토요일 및 당일 예약</strong>은 측정 불가합니다.</span></p>
+                            <p class="flex items-start gap-2"><i class="ph-fill ph-check-circle text-cbnu mt-0.5 shrink-0"></i> <span>예약시간 <strong>10분 이상 늦을 시</strong> 예약은 자동으로 취소됩니다.</span></p>
+                            <p class="flex items-start gap-2"><i class="ph-fill ph-check-circle text-cbnu mt-0.5 shrink-0"></i> <span>취소 없이 불참(노쇼) 시 다음 예약에 불이익이 있을 수 있습니다. 빈 시간대 활용을 위해 불가피한 경우 미리 취소 바랍니다.</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="bg-gray-800 text-white p-3 font-bold text-sm flex items-center gap-2">
+                            <i class="ph ph-headset text-lg"></i> 인바디 상담 문의
+                        </div>
+                        <div class="p-4 text-sm text-gray-700">
+                            <p class="mb-3 text-[11px] text-gray-500 break-keep">※ 인바디 상담이 필요하신 회원분은 본인 측정 시간대에 적혀있는 연락처로 문자보내주세요.</p>
+                            
+                            <div class="space-y-3">
+                                <div class="bg-gray-50 p-3 rounded border border-gray-100">
+                                    <p class="font-bold text-cbnu mb-1">오전 (06:00 ~ 13:30)</p>
+                                    <div class="flex flex-col gap-1 text-xs">
+                                        <span class="flex justify-between"><span>06:00-09:30</span> <span>김지도자 (010-XXXX-XXXX)</span></span>
+                                        <span class="flex justify-between"><span>10:00-13:30</span> <span>박지도자 (010-YYYY-YYYY)</span></span>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-gray-50 p-3 rounded border border-gray-100">
+                                    <p class="font-bold text-cbnu mb-1">오후 (14:00 ~ 20:00)</p>
+                                    <div class="flex flex-col gap-1 text-xs">
+                                        <span class="flex justify-between"><span>14:00-17:30</span> <span>이진도자 (010-ZZZZ-ZZZZ)</span></span>
+                                        <span class="flex justify-between"><span>18:00-20:00</span> <span>최지도자 (010-WWWW-WWWW)</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 하단 여백 확보 -->
+                    <div class="h-10"></div>
+                </div>
+            `;
+        }
+
+        function renderAdminDashboard() {
+            const main = document.getElementById('main-content');
+            // getOrCreateDayData를 통해 데이터를 가져옴
+            const todayData = getOrCreateDayData(AppState.selectedDate);
+            
+            let totalBooked = 0;
+            let totalWaitlist = 0;
+            let bookedHtml = '<div class="space-y-2 mt-2">';
+            let waitlistHtml = '<div class="space-y-2 mt-2">';
+            
+            timeSlots.forEach(time => {
+                const slot = todayData[time];
+                
+                if(slot && slot.status === 'booked') {
+                    totalBooked++;
+                    
+                    bookedHtml += `
+                        <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-0">
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-gray-800 w-12">${time}</span>
+                                <span class="text-sm text-gray-700">${slot.userName} <span class="text-[10px] text-gray-400">회원</span></span>
+                            </div>
+                            <button onclick="adminCancelSlot('${time}')" class="text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 border border-red-100 transition font-medium">취소</button>
+                        </div>
+                    `;
+
+                    if(slot.waitlist && slot.waitlist.length > 0) {
+                        slot.waitlist.forEach((w, index) => {
+                            totalWaitlist++;
+                            waitlistHtml += `
+                                <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-0">
+                                    <div class="flex items-center gap-3">
+                                        <span class="font-bold text-gray-800 w-12">${time}</span>
+                                        <span class="text-sm text-gray-700">${w.userName} <span class="text-[10px] text-gray-400">(대기 ${index+1})</span></span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+            });
+            bookedHtml += '</div>';
+            waitlistHtml += '</div>';
+
+            if(totalBooked === 0) {
+                bookedHtml = `<p class="text-xs text-gray-400 text-center py-8">확정된 예약이 없습니다.</p>`;
+            }
+            if(totalWaitlist === 0) {
+                waitlistHtml = `<p class="text-xs text-gray-400 text-center py-8">대기 중인 회원이 없습니다.</p>`;
+            }
+
+            const isEquipAvailable = AppState.equipmentStatus === 'available';
+
+            main.innerHTML = `
+                <div class="bg-gray-50 min-h-full p-4 pb-20">
+                    <!-- Date Selector for Admin -->
+                    <div class="mb-4 flex justify-end">
+                        <input type="date" value="${AppState.selectedDate}" min="${getTomorrowDate()}" onchange="handleDateChange(event)"
+                               class="bg-white border border-gray-200 text-gray-700 rounded-lg p-2 text-sm focus:outline-none focus:border-gray-400 shadow-sm">
+                    </div>
+
+                    <!-- Card 1: Equipment Status -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5 flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold text-gray-800 text-sm">인바디 장비 가동 상태</h3>
+                            <p class="text-[11px] text-gray-500 mt-1">점검 시 회원 예약이 전면 차단됩니다.</p>
+                        </div>
+                        <div class="relative inline-block w-12 h-6 cursor-pointer" onclick="toggleEquipmentStatus()">
+                            <div class="block w-12 h-6 rounded-full transition-colors duration-300 ${isEquipAvailable ? 'bg-[#e11d48]' : 'bg-gray-200'}"></div>
+                            <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 transform ${isEquipAvailable ? 'translate-x-6' : ''} shadow-sm"></div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Today's Reservations -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-gray-800 text-sm">오늘 예약 명단</h3>
+                            <span class="bg-red-50 text-[#e11d48] text-[10px] font-bold px-2.5 py-1 rounded-md">${totalBooked}명 예약됨</span>
+                        </div>
+                        ${bookedHtml}
+                    </div>
+
+                    <!-- Card 3: Waitlist Management -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-gray-800 text-sm">예약 대기(웨이팅) 관리</h3>
+                            <span class="bg-yellow-50 text-yellow-700 text-[10px] font-bold px-2.5 py-1 rounded-md">${totalWaitlist}명 대기 중</span>
+                        </div>
+                        <div class="mb-4">
+                            ${waitlistHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 관리자 장비 상태 토글 함수
+        function toggleEquipmentStatus() {
+            AppState.equipmentStatus = AppState.equipmentStatus === 'available' ? 'unavailable' : 'available';
+            renderAdminDashboard();
+            showToast(AppState.equipmentStatus === 'available' ? "장비가 정상 가동으로 전환되었습니다." : "장비가 점검 상태로 전환되었습니다.");
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            initMockDB();
+            
+            // --- 신규: 1시간 전 측정 리마인드 알림 (1분마다 체크) ---
+            setInterval(() => {
+                if (!AppState.isLoggedIn || AppState.role !== 'user') return;
+                
+                const now = new Date();
+                const todayStr = getLocalYYYYMMDD(now);
+                
+                if (AppState.db[todayStr]) {
+                    Object.keys(AppState.db[todayStr]).forEach(time => {
+                        const slot = AppState.db[todayStr][time];
+                        
+                        if (slot.status === 'booked' && slot.userId === AppState.currentUser.id) {
+                            const [hour, min] = time.split(':').map(Number);
+                            const slotTime = new Date(now);
+                            slotTime.setHours(hour, min, 0, 0);
+                            
+                            const diffMs = slotTime - now;
+                            const diffMins = Math.floor(diffMs / 1000 / 60);
+                            
+                            const reminderId = `${todayStr}-${time}`;
+                            // 정확히 60분 전이고, 아직 알림을 안 보냈다면 알림 발송
+                            if (diffMins === 60 && !AppState.remindersSent.includes(reminderId)) {
+                                addNotification(`⏰ [측정 리마인드] 오늘 ${time} 인바디 측정이 1시간 남았습니다.`);
+                                if (AppState.isLoggedIn) showToast(`측정 1시간 전입니다. 늦지 않게 방문해주세요!`);
+                                AppState.remindersSent.push(reminderId);
+                            }
+                        }
+                    });
+                }
+            }, 60000); // 1분 주기 동작
+        };
+
+    </script>
+</body>
+</html>
